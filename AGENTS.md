@@ -8,12 +8,11 @@ Guide for agentic coding tools operating in this repository.
 - Edition: 2024
 - Crate: `wikiparse-rs`
 - Type: single Cargo package with one CLI binary (`src/main.rs`) and library modules (`src/lib.rs`)
-- Purpose: parse Wikipedia SQL dumps into CSV outputs and upload selected data to Redis-compatible storage
+- Purpose: parse Wikipedia SQL dumps as streaming iterators and export rows to CSV
 
 Current CLI subcommands:
 
 - `export-csv`
-- `redis`
 
 Key files:
 
@@ -21,11 +20,14 @@ Key files:
 - `src/main.rs` - CLI entrypoint
 - `src/lib.rs` - module exports (`commands`, `outputs`, `parsers`, `sql_parsing`)
 - `src/commands/mod.rs` - clap command wiring
-- `src/commands/export_csv.rs` - CSV export subcommand
-- `src/commands/redis.rs` - Redis upload subcommand
-- `src/outputs/csv.rs` - CSV formatting/writers
-- `src/outputs/redis.rs` - Redis key/value writer helpers
-- `src/parsers/*.rs` - table-specific row parsers
+- `src/commands/export_csv.rs` - generic CSV export subcommand for all supported tables
+- `src/outputs/csv.rs` - generic CSV formatting/writers
+- `src/parsers/generic.rs` - shared streaming SQL `INSERT` parser and generic row/value types
+- `src/parsers/schema.rs` - supported table registry, names, and ordered column metadata
+- `src/parsers/page.rs` - typed parser wrapper for `page`
+- `src/parsers/pagelinks.rs` - typed parser wrapper for `pagelinks`
+- `src/parsers/linktarget.rs` - typed parser wrapper for `linktarget`
+- `src/parsers/mod.rs` - parser module exports and generic per-table iterator wrappers
 - `src/sql_parsing.rs` - shared byte-level parsing helpers
 
 ## 2. Build/Lint/Test/Run Commands
@@ -45,13 +47,32 @@ Run:
 ```bash
 # CLI entrypoint
 cargo run -- export-csv --table page --input /path/to/page.sql
-cargo run -- export-csv --table pagelinks --input /path/to/pagelinks.sql --limit 1000
+cargo run -- export-csv --table revision --input /path/to/revision.sql --limit 1000
 cargo run -- export-csv --table linktarget --input /path/to/linktarget.sql
 
-cargo run -- redis --page /path/to/page.sql --pagelinks /path/to/pagelinks.sql --linktarget /path/to/linktarget.sql
+# Release build run
+cargo run --release -- export-csv --table pagelinks --input ~/wikipedia/pagelinks.sql --limit 500000
+```
 
-# Optimized release run
-cargo run --release -- redis --page ~/wikipedia/page.sql --pagelinks ~/wikipedia/pagelinks.sql --linktarget ~/wikipedia/linktarget.sql --namespace 0 --batch-size 1000 --progress-every 1000000
+Library usage example:
+
+```rust
+use std::fs::File;
+use std::io::{self, BufReader};
+
+use wikiparse_rs::{iter_table_rows, WikipediaTable};
+
+fn main() -> io::Result<()> {
+    let file = File::open("revision.sql")?;
+    let reader = BufReader::new(file);
+
+    for row in iter_table_rows(reader, WikipediaTable::Revision).take(10) {
+        let row = row?;
+        println!("{} -> {} fields", row.table.table_name(), row.values.len());
+    }
+
+    Ok(())
+}
 ```
 
 Format and lint:
@@ -78,6 +99,8 @@ cargo test --bin wikiparse-rs
 # parser-focused module tests
 cargo test pagelinks::tests
 cargo test linktarget::tests
+cargo test generic::tests
+cargo test schema::tests
 cargo test sql_parsing::tests
 ```
 
@@ -85,14 +108,14 @@ Single-test workflows (preferred inner loop):
 
 ```bash
 # name filter across all targets
-cargo test parse_row
+cargo test iter_table_rows
 
 # name filter inside parser modules
-cargo test pagelinks::tests::parse_row
-cargo test linktarget::tests::parse_row
+cargo test parsers::pagelinks::tests
+cargo test parsers::linktarget::tests
 
 # exact single test
-cargo test parse_row_handles_spaces -- --exact
+cargo test --lib parsers::schema::tests::roundtrip_table_name_for_all_tables -- --exact
 cargo test --lib parse_sql_quoted_bytes_handles_escapes -- --exact
 
 # show test output
@@ -145,20 +168,19 @@ I/O and performance:
 CLI/output compatibility:
 
 - Preserve defaults unless explicitly requested to change.
-- Keep CSV headers and column order stable.
+- Keep CSV headers and column order stable for each table's schema order.
 - Keep output script-friendly and deterministic.
 
 ## 4. Testing Guidance for Parser Changes
 
 Prefer focused unit tests for:
 
-- whitespace around tuple fields
-- missing separators/parentheses
-- signed namespace edge cases
-- numeric overflow boundaries
+- missing separators/parentheses and tuple arity mismatches
+- signed/unsigned range boundaries for typed parser wrappers
 - SQL quoted string escapes (`\\`, `\'`, doubled `'`)
 - semicolon/end-of-line tuple termination
 - iterator behavior across multiple `INSERT` lines
+- per-table column metadata consistency (`column_names().len() == expected_columns()`)
 
 Recommended validation sequence before handoff:
 
@@ -189,57 +211,25 @@ If these files are added later, treat them as higher-priority local instructions
 - Avoid unrelated refactors in parser-critical files.
 - In dirty worktrees, do not revert unrelated user changes.
 
-## 7. Redis-Compatible Storage Upload Command and Database Shape
+## 7. Library-First Parsing API
 
-New subcommand:
+Core exports from `src/lib.rs`:
 
-- `redis`
+- `WikipediaTable` - enum of all supported MediaWiki tables
+- `ALL_TABLES` - list of all supported table variants
+- `SqlValue` - generic SQL value representation (`Null`, `I64`, `U64`, `F64`, `Bytes`)
+- `GenericRow` - parsed row container with table id and ordered values
+- `iter_table_rows(reader, table)` - streaming iterator over parsed rows for a table
+- `iter_table_rows_by_name(reader, "table_name")` - same, table resolved from name
 
-Arguments:
+Output format expectations:
 
-- `--page` (default: `page.sql`)
-- `--pagelinks` (default: `pagelinks.sql`)
-- `--linktarget` (default: `linktarget.sql`)
-- `--namespace` (default: `0`) - applied to all three tables
-- `--batch-size` (default: `1000`) - number of write commands sent per pipeline flush
-- `--progress-every` (default: `1000000`) - emit progress line every N scanned rows per table (`0` disables progress lines)
-- `--redis-url` (optional) - if omitted, resolve from `REDIS_URL`, then `redis://127.0.0.1:6379/`
+- CSV export prints table schema column names from `WikipediaTable::column_names()`.
+- `SqlValue::Bytes` exports as UTF-8 when valid, otherwise as `0x...` lowercase hex.
+- `SqlValue::Null` exports as an empty CSV field.
 
-Filtering behavior:
+Parser module structure:
 
-- `page`: include rows where `page_namespace == --namespace`
-- `pagelinks`: include rows where `pl_from_namespace == --namespace`
-- `linktarget`: include rows where `lt_namespace == --namespace`
-
-Resulting Redis-compatible keyspace (exact prefixes used by code):
-
-- `page:<page_title>` -> Redis string (`SET`) whose value is decimal `page.id` (`u32`) text
-- `pagelinks:<from_page_id>` -> Redis set (`SADD`) of decimal `pl_target_id` (`u64`) text members
-- `linktarget:<linktarget_id>` -> Redis string (`SET`) whose value is decoded `lt_title` text
-
-Encoding and format details:
-
-- IDs in Redis keys/values are decimal (base-10), not the hex format used by CSV output for some columns.
-- `linktarget` titles are SQL-unescaped bytes decoded as UTF-8 before writing; invalid UTF-8 returns `InvalidData` and aborts the command.
-- No TTL/expiration is set by this command.
-- Keys do not include namespace in their name; namespace only controls which rows are imported.
-
-Operational notes for users:
-
-- `pagelinks` is many-to-many, so `SADD` is used to accumulate multiple targets per source page.
-- Duplicate `pagelinks` pairs are naturally deduplicated by Redis set semantics.
-- `SET` keys for `page:*` and `linktarget:*` are overwritten if the same key is written again in later runs.
-- The command does not clear existing keys. Re-running with different dumps/namespaces can leave mixed data unless you delete keys first.
-- The command validates `--batch-size > 0` and fails fast on invalid values.
-- The command prints progress and per-table counters to stderr: `scanned`, `uploaded`, `skipped_namespace`.
-
-Recommended usage example:
-
-```bash
-cargo run --release -- redis \
-  --page ~/wikipedia/page.sql \
-  --pagelinks ~/wikipedia/pagelinks.sql \
-  --linktarget ~/wikipedia/linktarget.sql \
-  --namespace 0 \
-  --batch-size 1000
-```
+- Typed wrappers remain for `page`, `pagelinks`, and `linktarget` in `src/parsers/`.
+- Other tables are available through generic modules exposed by `src/parsers/mod.rs`.
+- Prefer generic iterator paths for new table integrations unless a typed wrapper is required.
