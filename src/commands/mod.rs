@@ -6,7 +6,7 @@ pub mod export_csv;
 pub mod redis;
 
 #[derive(Debug, Parser)]
-#[command(name = "wikidump_importer")]
+#[command(name = "wikiparse-rs")]
 #[command(about = "Parse MediaWiki SQL dumps")]
 pub struct Cli {
     #[command(subcommand)]

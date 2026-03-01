@@ -1,4 +1,4 @@
-# AGENTS.md - wikidump-importer
+# AGENTS.md - wikiparse-rs
 
 Guide for agentic coding tools operating in this repository.
 
@@ -6,7 +6,7 @@ Guide for agentic coding tools operating in this repository.
 
 - Language: Rust
 - Edition: 2024
-- Crate: `wikidump_importer`
+- Crate: `wikiparse-rs`
 - Type: single Cargo package with one CLI binary (`src/main.rs`) and library modules (`src/lib.rs`)
 - Purpose: parse Wikipedia SQL dumps into CSV outputs and upload selected data to Redis-compatible storage
 
@@ -37,7 +37,7 @@ Build:
 ```bash
 cargo build
 cargo build --release
-cargo build --bin wikidump_importer
+cargo build --bin wikiparse-rs
 ```
 
 Run:
@@ -73,7 +73,7 @@ cargo test
 cargo test --lib
 
 # binary entrypoint tests (if present)
-cargo test --bin wikidump_importer
+cargo test --bin wikiparse-rs
 
 # parser-focused module tests
 cargo test pagelinks::tests

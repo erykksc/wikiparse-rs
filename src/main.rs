@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use wikidump_importer::commands::Cli;
+use wikiparse_rs::commands::Cli;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
