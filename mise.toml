@@ -1,0 +1,11 @@
+[tools]
+rust = "latest"
+
+[tasks.verify]
+description = "Run checks before publishing"
+run="""
+cargo fmt --all -- --check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test
+cargo publish --dry-run --allow-dirty
+"""

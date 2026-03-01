@@ -105,13 +105,13 @@ fn run(args: Cli) -> io::Result<()> {
     let mut out = BufWriter::new(stdout.lock());
     let limit = args.limit.unwrap_or(usize::MAX);
 
-    if let Some(input_path) = args.input.as_deref() {
-        if input_path != "-" {
-            let file = File::open(input_path)?;
-            let reader = BufReader::new(file);
-            run_export(&mut out, reader, table, limit, args.format)?;
-            return out.flush();
-        }
+    if let Some(input_path) = args.input.as_deref()
+        && input_path != "-"
+    {
+        let file = File::open(input_path)?;
+        let reader = BufReader::new(file);
+        run_export(&mut out, reader, table, limit, args.format)?;
+        return out.flush();
     }
 
     let stdin = io::stdin();
