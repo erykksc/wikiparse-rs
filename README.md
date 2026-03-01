@@ -94,7 +94,7 @@ zcat /path/to/page.sql.gz | wikiparse-rs --table page --format csv > page.csv
 Show progress while streaming a compressed dump with [pv](https://codeberg.org/ivarch/pv):
 
 ```bash
-pv /path/to/page.sql.gz | zcat | cargo run -- --table page --format csv > page.csv
+pv /path/to/page.sql.gz | zcat | wikiparse-rs --table page --format csv > page.csv
 ```
 
 ## Column selection with xsv
