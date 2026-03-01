@@ -1,5 +1,7 @@
 # wikiparse-rs
 
+[![blazingly fast](https://www.blazingly.fast/api/badge.svg?repo=erykksc%2Fwikiparse-rs)](https://www.blazingly.fast)
+
 `wikiparse-rs` is a blazingly fast CLI and library written in Rust for streaming parsed uncompressed MediaWiki/Wikipedia SQL dumps.
 It reads `INSERT` rows from supported Wikipedia tables and exports them as CSV or JSON.
 
