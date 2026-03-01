@@ -5,11 +5,25 @@ It reads `INSERT` rows from supported Wikipedia tables and exports them as CSV o
 
 ## Install
 
-From this repository root:
+Install as a CLI tool from GitHub:
+
+```bash
+cargo install --git https://github.com/erykksc/wikiparse-rs wikiparse-rs
+```
+
+Install as a CLI tool from a local checkout (from this repository root):
 
 ```bash
 cargo install --path .
 ```
+
+Use as a library in another Rust project:
+
+```bash
+cargo add wikiparse-rs --git https://github.com/erykksc/wikiparse-rs
+```
+
+Import it in Rust as `wikiparse_rs`.
 
 ## Quick usage
 
@@ -29,6 +43,33 @@ Export a table dump to JSON:
 
 ```bash
 wikiparse-rs --table linktarget --format json --input /path/to/linktarget.sql > linktarget.json
+```
+
+## Example Usage
+
+Iterate over typed page rows and destructure fields inline:
+
+```rust
+use std::fs::File;
+use std::io::{self, BufReader};
+
+use wikiparse_rs::parsers::page::{PageRow, iter_rows};
+
+fn main() -> io::Result<()> {
+    let file = File::open("page.sql")?;
+    let reader = BufReader::new(file);
+
+    for row in iter_rows(reader).take(10) {
+        let PageRow {
+            id: page_id,
+            title: name,
+            ..
+        } = row?;
+        println!("{page_id},{}", String::from_utf8_lossy(&name));
+    }
+
+    Ok(())
+}
 ```
 
 ## CLI command
