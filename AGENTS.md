@@ -8,20 +8,19 @@ Guide for agentic coding tools operating in this repository.
 - Edition: 2024
 - Crate: `wikiparse-rs`
 - Type: single Cargo package with one CLI binary (`src/main.rs`) and library modules (`src/lib.rs`)
-- Purpose: parse Wikipedia SQL dumps as streaming iterators and export rows to CSV
+- Purpose: parse Wikipedia SQL dumps as streaming iterators and export rows to CSV/JSON
 
-Current CLI subcommands:
+Current CLI command:
 
-- `export-csv`
+- direct flags on the binary (`--table`, `--format`, `--input`, `--limit`)
 
 Key files:
 
 - `Cargo.toml` - package metadata/dependencies
-- `src/main.rs` - CLI entrypoint
-- `src/lib.rs` - module exports (`commands`, `outputs`, `parsers`, `sql_parsing`)
-- `src/commands/mod.rs` - clap command wiring
-- `src/commands/export_csv.rs` - generic CSV export subcommand for all supported tables
+- `src/main.rs` - CLI entrypoint, argument wiring, and export execution
+- `src/lib.rs` - module exports (`outputs`, `parsers`, `sql_parsing`)
 - `src/outputs/csv.rs` - generic CSV formatting/writers
+- `src/outputs/json.rs` - generic JSON formatting/writers
 - `src/parsers/generic.rs` - shared streaming SQL `INSERT` parser and generic row/value types
 - `src/parsers/schema.rs` - supported table registry, names, and ordered column metadata
 - `src/parsers/page.rs` - typed parser wrapper for `page`
@@ -46,12 +45,12 @@ Run:
 
 ```bash
 # CLI entrypoint
-cargo run -- export-csv --table page --input /path/to/page.sql
-cargo run -- export-csv --table revision --input /path/to/revision.sql --limit 1000
-cargo run -- export-csv --table linktarget --input /path/to/linktarget.sql
+cargo run -- --table page --format csv --input /path/to/page.sql
+cargo run -- --table revision --format csv --input /path/to/revision.sql --limit 1000
+cargo run -- --table linktarget --format json --input /path/to/linktarget.sql
 
 # Release build run
-cargo run --release -- export-csv --table pagelinks --input ~/wikipedia/pagelinks.sql --limit 500000
+cargo run --release -- --table pagelinks --format csv --input ~/wikipedia/pagelinks.sql --limit 500000
 ```
 
 Library usage example:
@@ -169,6 +168,7 @@ CLI/output compatibility:
 
 - Preserve defaults unless explicitly requested to change.
 - Keep CSV headers and column order stable for each table's schema order.
+- Keep JSON output as a valid top-level array (`[` first line, `]` last line) of per-row objects.
 - Keep output script-friendly and deterministic.
 
 ## 4. Testing Guidance for Parser Changes
@@ -227,6 +227,8 @@ Output format expectations:
 - CSV export prints table schema column names from `WikipediaTable::column_names()`.
 - `SqlValue::Bytes` exports as UTF-8 when valid, otherwise as `0x...` lowercase hex.
 - `SqlValue::Null` exports as an empty CSV field.
+- JSON export prints each row as an object keyed by `WikipediaTable::column_names()`.
+- JSON export renders `SqlValue::Null` as `null` and numeric values as JSON numbers.
 
 Parser module structure:
 
