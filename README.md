@@ -7,6 +7,12 @@ It reads `INSERT` rows from supported Wikipedia tables and exports them as CSV o
 
 ## Install
 
+Install as a CLI tool from crates.io:
+
+```bash
+cargo install wikiparse-rs
+```
+
 Install as a CLI tool from GitHub:
 
 ```bash
@@ -22,7 +28,7 @@ cargo install --path .
 Use as a library in another Rust project:
 
 ```bash
-cargo add wikiparse-rs --git https://github.com/erykksc/wikiparse-rs
+cargo add wikiparse-rs
 ```
 
 Import it in Rust as `wikiparse_rs`.

@@ -2,6 +2,14 @@
 name = "wikiparse-rs"
 version = "0.1.0"
 edition = "2024"
+description = "Fast WikiMedia/Wikipedia SQL dumps parser"
+repository = "https://github.com/erykksc/wikiparse-rs"
+homepage = "https://github.com/erykksc/wikiparse-rs"
+documentation = "https://docs.rs/wikiparse-rs"
+readme = "README.md"
+license-file = "LICENSE.txt"
+keywords = ["wikipedia", "wikimedia", "sql", "parser", "dumps"]
+categories = ["command-line-utilities", "parser-implementations"]
 
 [dependencies]
 clap = { version = "4.5.39", features = ["derive"] }
