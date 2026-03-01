@@ -22,6 +22,8 @@ pub struct Cli {
     table: String,
     #[arg(long)]
     format: OutputFormat,
+    /// Path to a SQL dump file, or "-" to read from stdin.
+    /// Defaults to stdin when omitted.
     #[arg(long)]
     input: Option<String>,
     #[arg(long)]
@@ -84,21 +86,37 @@ fn run_export_json<R: io::BufRead>(
     }
 }
 
+fn run_export<R: io::BufRead>(
+    out: &mut impl Write,
+    reader: R,
+    table: WikipediaTable,
+    limit: usize,
+    format: OutputFormat,
+) -> io::Result<()> {
+    match format {
+        OutputFormat::Csv => run_export_csv(out, reader, table, limit),
+        OutputFormat::Json => run_export_json(out, reader, table, limit),
+    }
+}
+
 fn run(args: Cli) -> io::Result<()> {
     let table = parse_table(&args.table)?;
-    let input_path = args
-        .input
-        .unwrap_or_else(|| format!("{}.sql", table.table_name()));
-    let file = File::open(input_path)?;
-    let reader = BufReader::new(file);
     let stdout = io::stdout();
     let mut out = BufWriter::new(stdout.lock());
     let limit = args.limit.unwrap_or(usize::MAX);
 
-    match args.format {
-        OutputFormat::Csv => run_export_csv(&mut out, reader, table, limit)?,
-        OutputFormat::Json => run_export_json(&mut out, reader, table, limit)?,
+    if let Some(input_path) = args.input.as_deref() {
+        if input_path != "-" {
+            let file = File::open(input_path)?;
+            let reader = BufReader::new(file);
+            run_export(&mut out, reader, table, limit, args.format)?;
+            return out.flush();
+        }
     }
+
+    let stdin = io::stdin();
+    let reader = stdin.lock();
+    run_export(&mut out, reader, table, limit, args.format)?;
 
     out.flush()
 }
