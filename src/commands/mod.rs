@@ -3,7 +3,6 @@ use std::io;
 use clap::{Parser, Subcommand};
 
 pub mod export_csv;
-pub mod redis;
 
 #[derive(Debug, Parser)]
 #[command(name = "wikiparse-rs")]
@@ -16,8 +15,6 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     ExportCsv(export_csv::ExportCsvArgs),
-    #[command(name = "redis")]
-    Redis(redis::RedisArgs),
 }
 
 impl Cli {
@@ -30,7 +27,6 @@ impl Command {
     pub fn run(self) -> io::Result<()> {
         match self {
             Self::ExportCsv(args) => export_csv::run_export_csv(args),
-            Self::Redis(args) => redis::run_redis(args),
         }
     }
 }

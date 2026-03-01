@@ -1,8 +1,6 @@
 use std::io::{self, Write};
 
-use crate::parsers::linktarget::LinkTargetRow;
-use crate::parsers::page::PageRow;
-use crate::parsers::pagelinks::PageLinkRow;
+use crate::parsers::generic::{GenericRow, SqlValue};
 
 pub fn csv_escape(value: &str) -> String {
     if value.contains([',', '"', '\n', '\r']) {
@@ -12,42 +10,48 @@ pub fn csv_escape(value: &str) -> String {
     }
 }
 
-pub fn write_page_header<W: Write>(out: &mut W) -> io::Result<()> {
-    writeln!(out, "pageName,pageId")
+fn bytes_to_csv_text(bytes: &[u8]) -> String {
+    if let Ok(text) = std::str::from_utf8(bytes) {
+        return text.to_string();
+    }
+
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(2 + bytes.len() * 2);
+    out.push_str("0x");
+    for &byte in bytes {
+        out.push(HEX[(byte >> 4) as usize] as char);
+        out.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    out
 }
 
-pub fn write_page_row<W: Write>(out: &mut W, row: &PageRow) -> io::Result<()> {
-    writeln!(out, "{},{}", csv_escape(&row.title), row.id)
+fn value_to_csv_text(value: &SqlValue) -> String {
+    match value {
+        SqlValue::Null => String::new(),
+        SqlValue::I64(n) => n.to_string(),
+        SqlValue::U64(n) => n.to_string(),
+        SqlValue::F64(n) => n.to_string(),
+        SqlValue::Bytes(bytes) => bytes_to_csv_text(bytes),
+    }
 }
 
-pub fn write_linktarget_header<W: Write>(out: &mut W) -> io::Result<()> {
-    writeln!(out, "linktarget_id,target_namespace,target_title")
+pub fn write_csv_header<W: Write>(out: &mut W, columns: &[&str]) -> io::Result<()> {
+    for (i, column) in columns.iter().enumerate() {
+        if i > 0 {
+            out.write_all(b",")?;
+        }
+        out.write_all(csv_escape(column).as_bytes())?;
+    }
+    out.write_all(b"\n")
 }
 
-pub fn write_linktarget_row<W: Write>(out: &mut W, row: &LinkTargetRow) -> io::Result<()> {
-    let title_text = std::str::from_utf8(&row.title).map_err(|_| {
-        io::Error::new(
-            io::ErrorKind::InvalidData,
-            "lt_title is not valid UTF-8 after SQL unescape",
-        )
-    })?;
-    writeln!(
-        out,
-        "{:016x},{},{}",
-        row.id,
-        row.namespace,
-        csv_escape(title_text)
-    )
-}
-
-pub fn write_pagelinks_header<W: Write>(out: &mut W) -> io::Result<()> {
-    writeln!(out, "from_page_id,from_namespace,linktarget_id")
-}
-
-pub fn write_pagelinks_row<W: Write>(out: &mut W, row: &PageLinkRow) -> io::Result<()> {
-    writeln!(
-        out,
-        "{:08x},{},{:016x}",
-        row.from_id, row.from_namespace, row.target_id
-    )
+pub fn write_generic_row<W: Write>(out: &mut W, row: &GenericRow) -> io::Result<()> {
+    for (i, value) in row.values.iter().enumerate() {
+        if i > 0 {
+            out.write_all(b",")?;
+        }
+        let value_text = value_to_csv_text(value);
+        out.write_all(csv_escape(&value_text).as_bytes())?;
+    }
+    out.write_all(b"\n")
 }
