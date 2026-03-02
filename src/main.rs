@@ -1,7 +1,8 @@
+use std::fmt;
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter, ErrorKind, Write};
 
-use clap::{Parser, ValueEnum};
+use clap::{ArgGroup, Parser, ValueEnum};
 
 use wikiparse_rs::outputs::csv::{write_csv_header, write_generic_row};
 use wikiparse_rs::outputs::json::write_json_row_object;
@@ -14,20 +15,38 @@ pub enum OutputFormat {
     Json,
 }
 
+impl fmt::Display for OutputFormat {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            OutputFormat::Csv => write!(f, "csv"),
+            OutputFormat::Json => write!(f, "json"),
+        }
+    }
+}
+
 #[derive(Debug, Parser)]
 #[command(name = "wikiparse-rs")]
 #[command(about = "Parse MediaWiki SQL dumps")]
+#[command(group(
+    ArgGroup::new("input_group")
+        .required(true)
+        .args(["input_pos", "input_flag"]),
+))]
 pub struct Cli {
-    #[arg(long)]
+    #[arg(short, long)]
     table: String,
-    #[arg(long)]
+    #[arg(short, long, default_value_t = OutputFormat::Csv)]
     format: OutputFormat,
-    /// Path to a SQL dump file, or "-" to read from stdin.
-    /// Defaults to stdin when omitted.
-    #[arg(long)]
-    input: Option<String>,
-    #[arg(long)]
+    #[arg(short, long)]
     limit: Option<usize>,
+
+    /// The input SQL dump file provided as a positional argument
+    #[arg(value_name = "INPUT")]
+    input_pos: Option<String>,
+
+    /// The input SQL dump file provided via a flag
+    #[arg(short, long = "input", value_name = "INPUT_FLAG")]
+    input_flag: Option<String>,
 }
 
 fn parse_table(table_name: &str) -> io::Result<WikipediaTable> {
@@ -105,7 +124,7 @@ fn run(args: Cli) -> io::Result<()> {
     let mut out = BufWriter::new(stdout.lock());
     let limit = args.limit.unwrap_or(usize::MAX);
 
-    if let Some(input_path) = args.input.as_deref()
+    if let Some(input_path) = args.input_pos.or(args.input_flag).as_deref()
         && input_path != "-"
     {
         let file = File::open(input_path)?;

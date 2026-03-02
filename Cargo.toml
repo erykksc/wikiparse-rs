@@ -1,6 +1,6 @@
 [package]
 name = "wikiparse-rs"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "Blazingly fast WikiMedia/Wikipedia SQL dumps parser"
 repository = "https://github.com/erykksc/wikiparse-rs"
