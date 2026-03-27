@@ -32,8 +32,8 @@ impl<R: BufRead> Iterator for PageLinksIter<R> {
             let row = row?;
             Ok(PageLinkRow {
                 from_id: parse_u32_field(&row.values[0], "pl_from")?,
-                target_id: parse_u64_field(&row.values[1], "pl_target_id")?,
-                from_namespace: parse_i32_field(&row.values[2], "pl_from_namespace")?,
+                from_namespace: parse_i32_field(&row.values[1], "pl_from_namespace")?,
+                target_id: parse_u64_field(&row.values[2], "pl_target_id")?,
             })
         })
     }
@@ -51,17 +51,17 @@ mod tests {
 
     #[test]
     fn iter_rows_respects_tuple_boundaries_on_single_line_insert() {
-        let sql = b"INSERT INTO `pagelinks` VALUES (10,11,0),(12,13,1),(14,15,-2);";
+        let sql = b"INSERT INTO `pagelinks` VALUES (10,0,11),(12,1,13),(14,-2,15);";
         let rows = iter_rows(Cursor::new(&sql[..]))
             .take(2)
             .collect::<io::Result<Vec<_>>>()
             .expect("must parse first two rows");
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].from_id, 10);
-        assert_eq!(rows[0].target_id, 11);
         assert_eq!(rows[0].from_namespace, 0);
+        assert_eq!(rows[0].target_id, 11);
         assert_eq!(rows[1].from_id, 12);
-        assert_eq!(rows[1].target_id, 13);
         assert_eq!(rows[1].from_namespace, 1);
+        assert_eq!(rows[1].target_id, 13);
     }
 }

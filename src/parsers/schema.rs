@@ -436,7 +436,7 @@ impl WikipediaTable {
                 "pr_cascade",
                 "pr_expiry",
             ],
-            Self::PageLinks => &["pl_from", "pl_target_id", "pl_from_namespace"],
+            Self::PageLinks => &["pl_from", "pl_from_namespace", "pl_target_id"],
             Self::ProtectedTitles => &[
                 "pt_namespace",
                 "pt_title",
